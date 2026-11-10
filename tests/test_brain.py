@@ -77,3 +77,20 @@ def test_memory_survives_restart(tmp_path):
     assert "Sister is Salma" in sent[0]["content"]           # fact injected into the system prompt
     assert sent[1]["content"] == "my sister's name is Salma"  # history carried over
     assert registry.call("recall", {"query": "sister"}, None) == "Sister is Salma"
+
+
+def test_ask_claude_sends_question_on_stdin_with_no_tools(monkeypatch):
+    from types import SimpleNamespace
+    seen = {}
+
+    def fake_run(cmd, **kw):
+        seen.update(cmd=cmd, **kw)
+        return SimpleNamespace(returncode=0, stdout="Forty-two.\n", stderr="")
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+    assert registry.call("ask_claude", {"question": "--help; meaning of life?"}, None) == "Forty-two."
+    assert seen["input"] == "--help; meaning of life?" and "--help; meaning of life?" not in seen["cmd"]
+    assert seen["cmd"][seen["cmd"].index("--tools") + 1] == ""
+
+    monkeypatch.setattr("subprocess.run", lambda *a, **k: SimpleNamespace(returncode=1, stdout="", stderr="not logged in"))
+    assert registry.call("ask_claude", {"question": "hi"}, None) == "Error: not logged in"

@@ -10,7 +10,7 @@ from jarvis.audio.tts import TTS
 from jarvis.audio.vad import EndOfSpeech
 from jarvis.audio.wakeword import WakeWord
 from jarvis.config import Config
-from jarvis.tools import timers
+from jarvis.tools import claude, timers
 
 log = logging.getLogger("jarvis")
 State = Enum("State", "IDLE LISTENING TRANSCRIBING THINKING SPEAKING")
@@ -46,7 +46,7 @@ def run(cfg: Config, build_agent, ptt: bool = False) -> None:
         return "yes" in listen().lower()
 
     agent = build_agent(cfg, confirm)
-    timers.on_fire = say
+    timers.on_fire = claude.announce = say
     followup = False
     while True:
         if not followup:
