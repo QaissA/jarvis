@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Jarvis</title>
+<style>
+  :root { --bg:#0b0f14; --panel:#131a22; --text:#e6edf3; --dim:#8b98a5; --accent:#4cc2ff; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, system-ui, sans-serif;
+         display: flex; flex-direction: column; }
+  header { padding: 28px 16px 12px; text-align: center; }
+  #orb { width: 96px; height: 96px; margin: 0 auto 14px; border-radius: 50%;
+         background: radial-gradient(circle at 35% 30%, #fff8, var(--accent) 45%, #0000 72%);
+         box-shadow: 0 0 36px var(--accent); transition: box-shadow .3s, background .3s; }
+  #state { letter-spacing: .18em; font-size: 12px; color: var(--dim); }
+  body[data-state="STARTING"]     { --accent:#5b6876; }
+  body[data-state="IDLE"]         { --accent:#2f6f95; }
+  body[data-state="LISTENING"]    { --accent:#3ddc97; }
+  body[data-state="TRANSCRIBING"] { --accent:#3ddc97; }
+  body[data-state="THINKING"]     { --accent:#f5b83d; }
+  body[data-state="SPEAKING"]     { --accent:#4cc2ff; }
+  body[data-state="ERROR"]        { --accent:#ff5d5d; }
+  body[data-state="LISTENING"] #orb, body[data-state="THINKING"] #orb, body[data-state="SPEAKING"] #orb
+    { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: scale(1.08); box-shadow: 0 0 60px var(--accent); } }
+  @media (prefers-reduced-motion: reduce) { #orb { animation: none !important; } }
+  #log { flex: 1; overflow-y: auto; padding: 8px 16px; display: flex; flex-direction: column; gap: 8px; }
+  #log p { margin: 0; padding: 8px 12px; border-radius: 12px; max-width: 85%; overflow-wrap: anywhere; }
+  #log .you { align-self: flex-end; background: #1f6feb; }
+  #log .jarvis { align-self: flex-start; background: var(--panel); }
+  #hint { margin: auto; color: var(--dim); text-align: center; }
+  form { display: flex; gap: 8px; padding: 12px 16px 16px; }
+  input, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid #263241;
+                  border-radius: 10px; padding: 10px 12px; }
+  input { flex: 1; min-width: 0; }
+  button { cursor: pointer; }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+</style>
+</head>
+<body data-state="STARTING">
+  <header>
+    <div id="orb" aria-hidden="true"></div>
+    <div id="state" role="status" aria-live="polite">STARTING</div>
+  </header>
+  <div id="log" aria-live="polite"><div id="hint">Say “Hey Jarvis”, or type below.</div></div>
+  <form id="form">
+    <input id="text" autocomplete="off" aria-label="Message to Jarvis" placeholder="Type a message">
+    <button type="submit">Send</button>
+    <button type="button" id="mic" aria-label="Listen now">🎙</button>
+  </form>
+<script>
+  const log = document.getElementById("log"), input = document.getElementById("text");
+  // Called from Python (jarvis/app.py) with kind = "state" | "you" | "jarvis"
+  function onEvent(kind, text) {
+    if (kind === "state") {
+      document.body.dataset.state = text;
+      document.getElementById("state").textContent = text;
+      return;
+    }
+    document.getElementById("hint")?.remove();
+    const p = document.createElement("p");
+    p.className = kind;
+    p.textContent = text;  // textContent: transcript text is never parsed as HTML
+    log.append(p);
+    log.scrollTop = log.scrollHeight;
+  }
+  document.getElementById("form").addEventListener("submit", e => {
+    e.preventDefault();
+    if (input.value.trim()) window.pywebview.api.say(input.value);
+    input.value = "";
+  });
+  document.getElementById("mic").addEventListener("click", () => window.pywebview.api.listen());
+</script>
+</body>
+</html>

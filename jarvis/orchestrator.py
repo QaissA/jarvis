@@ -1,4 +1,5 @@
 import logging
+import queue
 from enum import Enum
 
 import numpy as np
@@ -17,17 +18,22 @@ State = Enum("State", "IDLE LISTENING TRANSCRIBING THINKING SPEAKING")
 CHIME = (np.sin(2 * np.pi * 880 * np.arange(int(RATE * 0.12)) / RATE) * 8000).astype(np.int16)
 
 
-def run(cfg: Config, build_agent, ptt: bool = False) -> None:
+def run(cfg: Config, build_agent, ptt: bool = False, emit=lambda kind, text: None,
+        inbox: queue.Queue | None = None) -> None:
+    """emit(kind, text) reports "state", "you" and "jarvis" events to a UI.
+    inbox feeds typed text in; an empty string means "listen now" without the wake word."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     tts, stt, vad, mic = TTS(cfg.piper_voice), STT(cfg.whisper_model, cfg.language), EndOfSpeech(), Mic()
     wake = None if ptt else WakeWord(cfg.wake_threshold)
 
     def enter(state: State) -> None:
         log.info(state.name)
+        emit("state", state.name)
 
     def say(text: str) -> None:
         enter(State.SPEAKING)
         log.info("Jarvis: %s", text)
+        emit("jarvis", text)
         tts.speak(text)
         mic.flush()  # the mic stays open while speaking, so throw away our own voice
         if wake:
@@ -39,6 +45,8 @@ def run(cfg: Config, build_agent, ptt: bool = False) -> None:
         enter(State.TRANSCRIBING)
         text = stt.transcribe(audio)
         log.info("You: %s", text)
+        if text:
+            emit("you", text)
         return text
 
     def confirm(question: str) -> bool:
@@ -49,6 +57,7 @@ def run(cfg: Config, build_agent, ptt: bool = False) -> None:
     timers.on_fire = claude.announce = say
     followup = False
     while True:
+        typed = ""
         if not followup:
             enter(State.IDLE)
             if ptt:
@@ -56,9 +65,14 @@ def run(cfg: Config, build_agent, ptt: bool = False) -> None:
                 mic.flush()
             else:
                 while not wake.heard(mic.read()):
-                    pass
+                    if inbox and not inbox.empty():
+                        typed = inbox.get()
+                        break
+        if typed:
+            emit("you", typed)
+        elif not followup:
             sd.play(CHIME, RATE)
-        text = listen()
+        text = typed or listen()
         if not text:
             followup = False
             continue
