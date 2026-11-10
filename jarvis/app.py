@@ -34,8 +34,8 @@ class Api:
 
 def main() -> None:
     window = webview.create_window("Jarvis", str(Path(__file__).with_name("ui.html")), js_api=Api(),
-                                   width=1000, height=620, min_size=(760, 500),
-                                   frameless=True, easy_drag=False, transparent=True)  # the page draws its own rounded frame
+                                   width=1000, height=620, min_size=(760, 500), background_color="#05090f",
+                                   fullscreen=True)  # native full screen: no title bar, menu bar or Dock
 
     def emit(kind: str, text: str) -> None:
         window.evaluate_js(f"onEvent({json.dumps(kind)}, {json.dumps(text)})")

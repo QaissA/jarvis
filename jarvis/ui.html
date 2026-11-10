@@ -6,8 +6,8 @@
 <style>
   :root { --bg:#05090f; --text:#d9ecf7; --dim:#5f7d92; --line:#5ad7ff22; --accent:#5ad7ff; }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; background: transparent; }
-  body { color: var(--text); font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; overflow: hidden;
+  html, body { height: 100%; margin: 0; background: var(--bg); }
+  body { color: var(--text); font: clamp(13px, 1vw, 17px)/1.45 ui-monospace, "SF Mono", Menlo, monospace; overflow: hidden;
          user-select: none; -webkit-user-select: none; }
   body[data-state="STARTING"]     { --accent:#6b7f90; }
   body[data-state="IDLE"]         { --accent:#5ad7ff; }
@@ -17,16 +17,15 @@
   body[data-state="SPEAKING"]     { --accent:#5ad7ff; }
   body[data-state="ERROR"]        { --accent:#ff5d6c; }
 
-  /* The window has no system frame: this is the whole visible surface. */
-  #frame { height: 100%; border-radius: 22px; overflow: hidden; display: grid;
-           grid-template: "top top top" 44px "left core right" 1fr "cmd cmd cmd" 58px / 220px 1fr 300px;
+  #frame { height: 100%; overflow: hidden; display: grid;
+           grid-template: "top top top" 44px "left core right" 1fr "cmd cmd cmd" 58px / clamp(220px, 20vw, 360px) 1fr clamp(300px, 27vw, 480px);
            background:
              radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 60%),
              repeating-linear-gradient(0deg, #ffffff05 0 1px, transparent 1px 3px), var(--bg);
            transition: background .4s; }
   .label { color: var(--dim); font-size: 10px; letter-spacing: .28em; text-transform: uppercase; }
 
-  #top { grid-area: top; display: flex; align-items: center; gap: 14px; padding: 0 12px 0 22px; cursor: grab; }
+  #top { grid-area: top; display: flex; align-items: center; gap: 14px; padding: 0 12px 0 22px; }
   #top b { letter-spacing: .5em; font-weight: 600; color: var(--accent); }
   #top .label { flex: 1; }
   #close { all: unset; cursor: pointer; width: 28px; height: 28px; text-align: center; line-height: 28px;
@@ -34,7 +33,7 @@
   #close:hover, #close:focus-visible { color: #fff; background: #ff5d6c55; }
 
   #left { grid-area: left; padding: 18px 0 0 22px; display: flex; flex-direction: column; gap: 26px; }
-  #clock { font: 200 46px/1 -apple-system, system-ui, sans-serif; letter-spacing: .02em; margin-top: 6px;
+  #clock { font: 200 clamp(46px, 4.4vw, 84px)/1 -apple-system, system-ui, sans-serif; letter-spacing: .02em; margin-top: 6px;
            font-variant-numeric: tabular-nums; }
   #date { color: var(--dim); margin-top: 6px; }
   .meter { margin-top: 12px; }
@@ -46,7 +45,7 @@
 
   #core { grid-area: core; display: flex; flex-direction: column; align-items: center; justify-content: center;
           min-width: 0; padding: 0 12px; text-align: center; }
-  #reactor { width: min(250px, 38vh); aspect-ratio: 1; color: var(--accent); transition: color .4s;
+  #reactor { width: min(460px, 44vh); aspect-ratio: 1; color: var(--accent); transition: color .4s;
              filter: drop-shadow(0 0 14px var(--accent)); }
   #reactor g { transform-origin: 100px 100px; animation: spin 24s linear infinite; }
   #reactor g:nth-of-type(2) { animation-duration: 14s; animation-direction: reverse; }
@@ -59,7 +58,7 @@
   @media (prefers-reduced-motion: reduce) { #reactor * { animation: none !important; } }
   #state { margin-top: 18px; color: var(--accent); letter-spacing: .5em; font-size: 12px; padding-left: .5em; }
   #heard { margin-top: 16px; color: var(--dim); min-height: 1.45em; }
-  #reply { margin-top: 6px; font: 300 19px/1.4 -apple-system, system-ui, sans-serif; max-width: 34em;
+  #reply { margin-top: 6px; font: 300 clamp(19px, 1.7vw, 30px)/1.4 -apple-system, system-ui, sans-serif; max-width: 34em;
            display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 
   #right { grid-area: right; padding: 18px 22px 0 0; display: flex; flex-direction: column; min-height: 0; }
@@ -85,7 +84,7 @@
 </head>
 <body data-state="STARTING">
 <div id="frame">
-  <header id="top" class="pywebview-drag-region">
+  <header id="top">
     <b>JARVIS</b>
     <span class="label" id="model"></span>
     <button id="close" aria-label="Quit Jarvis">×</button>
