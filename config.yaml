@@ -1,0 +1,10 @@
+# Every key is optional; defaults live in jarvis/config.py
+model: qwen3:8b            # 8 GB RAM: gemma4:e4b · 32 GB+: gpt-oss:20b
+user_name: sir
+whisper_model: small       # base.en is faster, small is more accurate
+language: en
+piper_voice: models/en_GB-alan-medium.onnx
+wake_threshold: 0.5        # raise if the TV wakes it, lower if it ignores you
+allowed_folders: [~/Documents, ~/Desktop, ~/Downloads]
+# Small models get confused past ~8 tools: drop modules here to trim.
+tool_modules: [system, apps, timers, web, memory_tools, files]
