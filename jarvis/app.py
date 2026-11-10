@@ -10,6 +10,7 @@ import webview
 from jarvis import config
 from jarvis.main import build_agent
 from jarvis.orchestrator import run
+from jarvis.tools.system import stats
 
 _inbox: queue.Queue[str] = queue.Queue()  # module-level: pywebview walks the Api object's attributes
 
@@ -24,10 +25,17 @@ class Api:
     def listen(self) -> None:
         _inbox.put("")
 
+    def stats(self) -> dict:
+        return {**stats(), "model": config.load().model}
+
+    def close(self) -> None:
+        webview.windows[0].destroy()
+
 
 def main() -> None:
     window = webview.create_window("Jarvis", str(Path(__file__).with_name("ui.html")), js_api=Api(),
-                                   width=420, height=680, min_size=(340, 480), background_color="#0b0f14")
+                                   width=1000, height=620, min_size=(760, 500),
+                                   frameless=True, easy_drag=False, transparent=True)  # the page draws its own rounded frame
 
     def emit(kind: str, text: str) -> None:
         window.evaluate_js(f"onEvent({json.dumps(kind)}, {json.dumps(text)})")

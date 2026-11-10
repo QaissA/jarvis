@@ -4,73 +4,181 @@
 <meta charset="utf-8">
 <title>Jarvis</title>
 <style>
-  :root { --bg:#0b0f14; --panel:#131a22; --text:#e6edf3; --dim:#8b98a5; --accent:#4cc2ff; }
+  :root { --bg:#05090f; --text:#d9ecf7; --dim:#5f7d92; --line:#5ad7ff22; --accent:#5ad7ff; }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
-  body { background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, system-ui, sans-serif;
-         display: flex; flex-direction: column; }
-  header { padding: 28px 16px 12px; text-align: center; }
-  #orb { width: 96px; height: 96px; margin: 0 auto 14px; border-radius: 50%;
-         background: radial-gradient(circle at 35% 30%, #fff8, var(--accent) 45%, #0000 72%);
-         box-shadow: 0 0 36px var(--accent); transition: box-shadow .3s, background .3s; }
-  #state { letter-spacing: .18em; font-size: 12px; color: var(--dim); }
-  body[data-state="STARTING"]     { --accent:#5b6876; }
-  body[data-state="IDLE"]         { --accent:#2f6f95; }
-  body[data-state="LISTENING"]    { --accent:#3ddc97; }
-  body[data-state="TRANSCRIBING"] { --accent:#3ddc97; }
-  body[data-state="THINKING"]     { --accent:#f5b83d; }
-  body[data-state="SPEAKING"]     { --accent:#4cc2ff; }
-  body[data-state="ERROR"]        { --accent:#ff5d5d; }
-  body[data-state="LISTENING"] #orb, body[data-state="THINKING"] #orb, body[data-state="SPEAKING"] #orb
-    { animation: pulse 1.2s ease-in-out infinite; }
-  @keyframes pulse { 50% { transform: scale(1.08); box-shadow: 0 0 60px var(--accent); } }
-  @media (prefers-reduced-motion: reduce) { #orb { animation: none !important; } }
-  #log { flex: 1; overflow-y: auto; padding: 8px 16px; display: flex; flex-direction: column; gap: 8px; }
-  #log p { margin: 0; padding: 8px 12px; border-radius: 12px; max-width: 85%; overflow-wrap: anywhere; }
-  #log .you { align-self: flex-end; background: #1f6feb; }
-  #log .jarvis { align-self: flex-start; background: var(--panel); }
-  #hint { margin: auto; color: var(--dim); text-align: center; }
-  form { display: flex; gap: 8px; padding: 12px 16px 16px; }
-  input, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid #263241;
-                  border-radius: 10px; padding: 10px 12px; }
-  input { flex: 1; min-width: 0; }
-  button { cursor: pointer; }
-  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  html, body { height: 100%; margin: 0; background: transparent; }
+  body { color: var(--text); font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; overflow: hidden;
+         user-select: none; -webkit-user-select: none; }
+  body[data-state="STARTING"]     { --accent:#6b7f90; }
+  body[data-state="IDLE"]         { --accent:#5ad7ff; }
+  body[data-state="LISTENING"]    { --accent:#3dffb0; }
+  body[data-state="TRANSCRIBING"] { --accent:#3dffb0; }
+  body[data-state="THINKING"]     { --accent:#ffc247; }
+  body[data-state="SPEAKING"]     { --accent:#5ad7ff; }
+  body[data-state="ERROR"]        { --accent:#ff5d6c; }
+
+  /* The window has no system frame: this is the whole visible surface. */
+  #frame { height: 100%; border-radius: 22px; overflow: hidden; display: grid;
+           grid-template: "top top top" 44px "left core right" 1fr "cmd cmd cmd" 58px / 220px 1fr 300px;
+           background:
+             radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 60%),
+             repeating-linear-gradient(0deg, #ffffff05 0 1px, transparent 1px 3px), var(--bg);
+           transition: background .4s; }
+  .label { color: var(--dim); font-size: 10px; letter-spacing: .28em; text-transform: uppercase; }
+
+  #top { grid-area: top; display: flex; align-items: center; gap: 14px; padding: 0 12px 0 22px; cursor: grab; }
+  #top b { letter-spacing: .5em; font-weight: 600; color: var(--accent); }
+  #top .label { flex: 1; }
+  #close { all: unset; cursor: pointer; width: 28px; height: 28px; text-align: center; line-height: 28px;
+           border-radius: 50%; color: var(--dim); font-size: 16px; }
+  #close:hover, #close:focus-visible { color: #fff; background: #ff5d6c55; }
+
+  #left { grid-area: left; padding: 18px 0 0 22px; display: flex; flex-direction: column; gap: 26px; }
+  #clock { font: 200 46px/1 -apple-system, system-ui, sans-serif; letter-spacing: .02em; margin-top: 6px;
+           font-variant-numeric: tabular-nums; }
+  #date { color: var(--dim); margin-top: 6px; }
+  .meter { margin-top: 12px; }
+  .meter div:first-child { display: flex; justify-content: space-between; }
+  .meter span:last-child { font-variant-numeric: tabular-nums; }
+  .bar { height: 2px; margin-top: 6px; background: var(--line); }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent);
+           box-shadow: 0 0 8px var(--accent); transition: width .6s, background .4s; }
+
+  #core { grid-area: core; display: flex; flex-direction: column; align-items: center; justify-content: center;
+          min-width: 0; padding: 0 12px; text-align: center; }
+  #reactor { width: min(250px, 38vh); aspect-ratio: 1; color: var(--accent); transition: color .4s;
+             filter: drop-shadow(0 0 14px var(--accent)); }
+  #reactor g { transform-origin: 100px 100px; animation: spin 24s linear infinite; }
+  #reactor g:nth-of-type(2) { animation-duration: 14s; animation-direction: reverse; }
+  #reactor circle.heart { transform-origin: 100px 100px; animation: breathe 3.2s ease-in-out infinite; }
+  body[data-state="THINKING"] #reactor g { animation-duration: 3s; }
+  body[data-state="LISTENING"] #reactor circle.heart, body[data-state="SPEAKING"] #reactor circle.heart
+    { animation-duration: .7s; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes breathe { 50% { transform: scale(1.16); opacity: .75; } }
+  @media (prefers-reduced-motion: reduce) { #reactor * { animation: none !important; } }
+  #state { margin-top: 18px; color: var(--accent); letter-spacing: .5em; font-size: 12px; padding-left: .5em; }
+  #heard { margin-top: 16px; color: var(--dim); min-height: 1.45em; }
+  #reply { margin-top: 6px; font: 300 19px/1.4 -apple-system, system-ui, sans-serif; max-width: 34em;
+           display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+  #right { grid-area: right; padding: 18px 22px 0 0; display: flex; flex-direction: column; min-height: 0; }
+  #log { flex: 1; overflow-y: auto; margin-top: 10px; padding-right: 4px; user-select: text; -webkit-user-select: text;
+         mask-image: linear-gradient(transparent, #000 28px); -webkit-mask-image: linear-gradient(transparent, #000 28px); }
+  #log::-webkit-scrollbar { width: 0; }
+  #log p { margin: 0 0 10px; overflow-wrap: anywhere; color: var(--dim); }
+  #log p.jarvis { color: var(--text); }
+  #log time { margin-right: 8px; font-size: 10px; opacity: .7; }
+  #log p.you::before { content: "YOU › "; }
+
+  #cmd { grid-area: cmd; display: flex; align-items: center; gap: 12px; padding: 0 22px;
+         background: linear-gradient(90deg, transparent, var(--line), transparent) top / 100% 1px no-repeat; }
+  #cmd span { color: var(--accent); }
+  #text { all: unset; flex: 1; min-width: 0; color: var(--text); caret-color: var(--accent); user-select: text;
+          -webkit-user-select: text; }
+  #text::placeholder { color: var(--dim); }
+  #mic { all: unset; cursor: pointer; color: var(--dim); letter-spacing: .28em; font-size: 10px; padding: 8px 12px;
+         border-radius: 14px; }
+  #mic:hover, #mic:focus-visible { color: var(--bg); background: var(--accent); }
+  #text:focus-visible { outline: none; }
 </style>
 </head>
 <body data-state="STARTING">
-  <header>
-    <div id="orb" aria-hidden="true"></div>
-    <div id="state" role="status" aria-live="polite">STARTING</div>
+<div id="frame">
+  <header id="top" class="pywebview-drag-region">
+    <b>JARVIS</b>
+    <span class="label" id="model"></span>
+    <button id="close" aria-label="Quit Jarvis">×</button>
   </header>
-  <div id="log" aria-live="polite"><div id="hint">Say “Hey Jarvis”, or type below.</div></div>
-  <form id="form">
-    <input id="text" autocomplete="off" aria-label="Message to Jarvis" placeholder="Type a message">
-    <button type="submit">Send</button>
-    <button type="button" id="mic" aria-label="Listen now">🎙</button>
+
+  <aside id="left">
+    <section>
+      <div class="label">Local time</div>
+      <div id="clock">--:--</div>
+      <div id="date"></div>
+    </section>
+    <section>
+      <div class="label">System</div>
+      <div class="meter"><div><span>BATTERY</span><span id="battery">--</span></div><div class="bar"><i id="battery-bar"></i></div></div>
+      <div class="meter"><div><span>CPU LOAD</span><span id="cpu">--</span></div><div class="bar"><i id="cpu-bar"></i></div></div>
+      <div class="meter"><div><span>DISK USED</span><span id="disk">--</span></div><div class="bar"><i id="disk-bar"></i></div></div>
+    </section>
+  </aside>
+
+  <main id="core">
+    <svg id="reactor" viewBox="0 0 200 200" fill="none" stroke="currentColor" aria-hidden="true">
+      <g><circle cx="100" cy="100" r="94" stroke-width="1" stroke-dasharray="2 7"/>
+         <circle cx="100" cy="100" r="84" stroke-width="3" stroke-dasharray="110 66" opacity=".8"/></g>
+      <g><circle cx="100" cy="100" r="68" stroke-width="1.5" stroke-dasharray="60 20 8 20" opacity=".7"/>
+         <circle cx="100" cy="100" r="56" stroke-width="6" stroke-dasharray="4 10" opacity=".35"/></g>
+      <circle class="heart" cx="100" cy="100" r="30" fill="currentColor" stroke="none" opacity=".9"/>
+      <circle cx="100" cy="100" r="42" stroke-width="1"/>
+    </svg>
+    <div id="state" role="status" aria-live="polite">STARTING</div>
+    <div id="heard">Say “Hey Jarvis”, or type a command below.</div>
+    <div id="reply" aria-live="polite"></div>
+  </main>
+
+  <aside id="right">
+    <div class="label">Activity</div>
+    <div id="log"></div>
+  </aside>
+
+  <form id="cmd">
+    <span aria-hidden="true">›</span>
+    <input id="text" autocomplete="off" spellcheck="false" aria-label="Command for Jarvis" placeholder="Type a command">
+    <button type="button" id="mic">Listen</button>
   </form>
+</div>
 <script>
-  const log = document.getElementById("log"), input = document.getElementById("text");
+  const $ = id => document.getElementById(id);
+  const api = () => window.pywebview && window.pywebview.api;  // absent when the page is opened in a browser
+  const hhmm = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+
   // Called from Python (jarvis/app.py) with kind = "state" | "you" | "jarvis"
   function onEvent(kind, text) {
     if (kind === "state") {
       document.body.dataset.state = text;
-      document.getElementById("state").textContent = text;
+      $("state").textContent = text;
       return;
     }
-    document.getElementById("hint")?.remove();
-    const p = document.createElement("p");
+    // textContent everywhere: transcript text is never parsed as HTML
+    if (kind === "you") { $("heard").textContent = "“" + text + "”"; $("reply").textContent = ""; }
+    else $("reply").textContent = text;
+    const p = document.createElement("p"), t = document.createElement("time");
     p.className = kind;
-    p.textContent = text;  // textContent: transcript text is never parsed as HTML
-    log.append(p);
-    log.scrollTop = log.scrollHeight;
+    t.textContent = hhmm();
+    p.append(t, text);
+    $("log").append(p);
+    $("log").scrollTop = $("log").scrollHeight;
   }
-  document.getElementById("form").addEventListener("submit", e => {
+
+  function tick() {
+    $("clock").textContent = hhmm();
+    $("date").textContent = new Date().toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
+  }
+  function meter(id, value, shown) {
+    $(id).textContent = value == null ? "--" : shown;
+    $(id + "-bar").style.width = (value ?? 0) + "%";
+  }
+  async function refresh() {
+    if (!api()) return;
+    const s = await api().stats();
+    meter("battery", s.battery, s.battery + "%");
+    meter("cpu", s.cpu, s.cpu + "%");
+    meter("disk", s.disk_used, s.disk_free_gb + " GB free");
+    $("model").textContent = "local · " + s.model;
+  }
+
+  $("cmd").addEventListener("submit", e => {
     e.preventDefault();
-    if (input.value.trim()) window.pywebview.api.say(input.value);
-    input.value = "";
+    if ($("text").value.trim() && api()) api().say($("text").value);
+    $("text").value = "";
   });
-  document.getElementById("mic").addEventListener("click", () => window.pywebview.api.listen());
+  $("mic").addEventListener("click", () => api() && api().listen());
+  $("close").addEventListener("click", () => api() && api().close());
+  tick(); setInterval(tick, 1000);
+  window.addEventListener("pywebviewready", () => { refresh(); setInterval(refresh, 5000); });
 </script>
 </body>
 </html>
