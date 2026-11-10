@@ -54,6 +54,10 @@ def run(cfg: Config, build_agent, ptt: bool = False, emit=lambda kind, text: Non
         return "yes" in listen().lower()
 
     agent = build_agent(cfg, confirm)
+    if mic.is_silent():
+        log.warning("microphone is silent")
+        emit("jarvis", "I can't hear anything. Allow Jarvis under System Settings, Privacy and Security, Microphone, "
+                       "then reopen me. Typing still works.")
     timers.on_fire = claude.announce = say
     followup = False
     while True:
