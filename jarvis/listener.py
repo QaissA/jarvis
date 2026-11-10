@@ -13,7 +13,8 @@ APP = Path(__file__).resolve().parents[1] / "Jarvis.app"
 
 
 def app_running() -> bool:
-    return subprocess.run(["pgrep", "-f", "jarvis.app"], capture_output=True).returncode == 0
+    # -x: exact process name of Jarvis.app's launcher binary, so nothing else that mentions Jarvis can match
+    return subprocess.run(["pgrep", "-x", "Jarvis"], capture_output=True).returncode == 0
 
 
 def main() -> None:

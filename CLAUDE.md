@@ -8,3 +8,6 @@
 - Add a pytest test for every new function.
 - Keep replies spoken-style: short, no markdown.
 - Run: `uv run python -m jarvis.main --text` · Test: `uv run pytest`
+- Desktop app: `open Jarvis.app` (window code in jarvis/app.py + jarvis/ui.html).
+- "Hey Jarvis" login listener: `./install-listener.sh` / `./install-listener.sh uninstall`.
+- After editing launcher.c run `./build-apps.sh`; macOS then asks for the microphone again.
