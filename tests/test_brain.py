@@ -94,3 +94,55 @@ def test_ask_claude_sends_question_on_stdin_with_no_tools(monkeypatch):
 
     monkeypatch.setattr("subprocess.run", lambda *a, **k: SimpleNamespace(returncode=1, stdout="", stderr="not logged in"))
     assert registry.call("ask_claude", {"question": "hi"}, None) == "Error: not logged in"
+
+
+def test_local_model_failure_is_an_apology_not_a_crash():
+    class Down:
+        def chat(self, messages, tools):
+            raise ConnectionError("ollama is down")
+    assert "local model" in agent(Down()).reply("hi")
+
+
+def claude_brain(confirm, fallback=None):
+    from jarvis.brain.claude import ClaudeBrain
+    return ClaudeBrain(Config(), Store(":memory:"), confirm, fallback)
+
+
+def test_claude_gate_asks_before_risky_actions(tmp_path, monkeypatch):
+    import asyncio
+    from pathlib import Path
+    asked = []
+    brain = claude_brain(lambda q, detail="": asked.append((q, detail)) or False)
+    gate = lambda name, args: asyncio.run(brain.gate(name, args)).behavior
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    assert gate("Write", {"file_path": str(tmp_path / "new.txt")}) == "allow" and not asked  # new file at home
+    (tmp_path / "old.txt").write_text("keep me")
+    assert gate("Write", {"file_path": str(tmp_path / "old.txt")}) == "deny"  # overwrite: asked, user said no
+    assert gate("Write", {"file_path": "/etc/new.txt"}) == "deny"  # outside home
+    assert gate("Bash", {"command": "rm -rf x", "description": "delete x"}) == "deny"
+    assert asked[-1] == ("I want to delete x. Shall I go ahead?", "rm -rf x")
+    brain.confirm = lambda q, detail="": True
+    assert gate("Bash", {"command": "rm -rf x"}) == "allow"
+    assert gate("mcp__claude-in-chrome__computer", {}) == "allow" and brain.browser_ok
+
+
+def test_claude_failure_falls_back_to_local_model(monkeypatch):
+    brain = claude_brain(lambda q: True, fallback=agent(FakeLLM(Response("local answer"))))
+    async def boom(text):
+        raise RuntimeError("offline")
+    monkeypatch.setattr(brain, "_ask", boom)
+    assert brain.reply("hi") == "local answer"
+
+
+def test_registry_tools_are_offered_to_claude_except_ask_claude():
+    from jarvis.brain.claude import _jarvis_tools
+    names = [t.name for t in _jarvis_tools(lambda q: True)]
+    assert "set_timer" in names and "remember" in names and "ask_claude" not in names
+
+
+def test_image_src(tmp_path):
+    from jarvis.app import image_src
+    (tmp_path / "a.png").write_bytes(b"png")
+    assert image_src("https://x.org/a.png") == "https://x.org/a.png"
+    assert image_src(str(tmp_path / "a.png")) == "data:image/png;base64,cG5n"
+    assert image_src(str(tmp_path / "missing.png")) == "" and image_src("/etc/hosts") == ""

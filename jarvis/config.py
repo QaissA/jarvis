@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel
@@ -6,6 +7,10 @@ from pydantic import BaseModel
 
 class Config(BaseModel, extra="forbid"):  # forbid: a typo in config.yaml fails at startup
     ollama_host: str = "http://localhost:11434"
+    brain: Literal["claude", "ollama"] = "claude"  # claude falls back to the Ollama model when it fails
+    claude_model: str = "sonnet"
+    claude_timeout: float = 300  # seconds for one whole request, tool use included
+    claude_chrome: bool = False  # drive Chrome through the Claude in Chrome extension
     model: str = "qwen3:8b"
     user_name: str = "sir"
     history_turns: int = 10

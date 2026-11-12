@@ -1,5 +1,6 @@
 import logging
 import queue
+import re
 from enum import Enum
 
 import numpy as np
@@ -15,12 +16,30 @@ from jarvis.tools import claude, timers
 
 log = logging.getLogger("jarvis")
 State = Enum("State", "IDLE LISTENING TRANSCRIBING THINKING SPEAKING")
+_IMAGE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
+
+
+def split_images(text: str) -> tuple[str, list[str]]:
+    """Pull markdown images out of a reply: they are shown, never spoken."""
+    return _IMAGE.sub("", text).strip(), _IMAGE.findall(text)
+
+
+_YES = set("yes yeah yep yup sure ok okay go proceed do please confirm confirmed affirmative absolutely certainly".split())
+_NO = set("no nope not don't dont stop cancel never wait".split())
+
+
+def is_yes(answer: str) -> bool:
+    """A spoken or typed answer approves only if it has a yes word and no no word: unclear means no."""
+    words = set(re.findall(r"[a-z']+", answer.lower()))
+    return bool(words & _YES) and not words & _NO
+
+
 CHIME = (np.sin(2 * np.pi * 880 * np.arange(int(RATE * 0.12)) / RATE) * 8000).astype(np.int16)
 
 
 def run(cfg: Config, build_agent, ptt: bool = False, emit=lambda kind, text: None,
         inbox: queue.Queue | None = None) -> None:
-    """emit(kind, text) reports "state", "you" and "jarvis" events to a UI.
+    """emit(kind, text) reports "state", "you", "jarvis" and "image" events to a UI.
     inbox feeds typed text in; an empty string means "listen now" without the wake word."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     tts, stt, vad, mic = TTS(cfg.piper_voice), STT(cfg.whisper_model, cfg.language), EndOfSpeech(), Mic()
@@ -33,7 +52,10 @@ def run(cfg: Config, build_agent, ptt: bool = False, emit=lambda kind, text: Non
     def say(text: str) -> None:
         enter(State.SPEAKING)
         log.info("Jarvis: %s", text)
+        text, images = split_images(text)
         emit("jarvis", text)
+        for src in images:
+            emit("image", src)
         tts.speak(text)
         mic.flush()  # the mic stays open while speaking, so throw away our own voice
         if wake:
@@ -49,9 +71,18 @@ def run(cfg: Config, build_agent, ptt: bool = False, emit=lambda kind, text: Non
             emit("you", text)
         return text
 
-    def confirm(question: str) -> bool:
+    def confirm(question: str, detail: str = "") -> bool:
+        if detail:
+            emit("jarvis", detail)  # the exact command or file goes on screen, only the question is spoken
         say(question)
-        return "yes" in listen().lower()
+        answer = listen()
+        if not answer and inbox:  # nothing heard (or no mic): take a typed answer
+            try:
+                answer = inbox.get(timeout=20)
+                emit("you", answer)
+            except queue.Empty:
+                pass
+        return is_yes(answer)
 
     agent = build_agent(cfg, confirm)
     if mic.is_silent():
@@ -76,6 +107,12 @@ def run(cfg: Config, build_agent, ptt: bool = False, emit=lambda kind, text: Non
             emit("you", typed)
         elif not followup:
             sd.play(CHIME, RATE)
+            sd.wait()
+            # Drop the tail of "Hey Jarvis" and the chime: the recorder took them for the command,
+            # stopped after 0.8 s of quiet and went back to IDLE before the user had spoken.
+            mic.flush()
+            if wake:
+                wake.reset()  # or the wake word still in its buffer fires a second time
         text = typed or listen()
         if not text:
             followup = False
@@ -83,4 +120,4 @@ def run(cfg: Config, build_agent, ptt: bool = False, emit=lambda kind, text: Non
         enter(State.THINKING)
         reply = agent.reply(text)
         say(reply)
-        followup = reply.rstrip().endswith("?")  # Jarvis asked something: listen again without the wake word
+        followup = split_images(reply)[0].endswith("?")  # Jarvis asked something: listen again without the wake word

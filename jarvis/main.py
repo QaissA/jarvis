@@ -13,7 +13,11 @@ def build_agent(cfg: config.Config, confirm) -> Agent:
     memory_tools.store = store
     files.allowed_folders = [Path(f).expanduser().resolve() for f in cfg.allowed_folders]
     registry.load(cfg.tool_modules)
-    return Agent(OllamaClient(cfg.ollama_host, cfg.model), cfg, store, confirm)
+    agent = Agent(OllamaClient(cfg.ollama_host, cfg.model), cfg, store, confirm)
+    if cfg.brain == "claude":
+        from jarvis.brain.claude import ClaudeBrain
+        return ClaudeBrain(cfg, store, confirm, fallback=agent)
+    return agent
 
 
 def main() -> None:
@@ -30,7 +34,7 @@ def main() -> None:
         from jarvis.orchestrator import run
         return run(cfg, build_agent, ptt=args.ptt)
 
-    agent = build_agent(cfg, lambda q: input(f"Jarvis: {q} (y/n) ").strip().lower().startswith("y"))
+    agent = build_agent(cfg, lambda q, detail="": input(f"Jarvis: {q} {detail} (y/n) ").strip().lower().startswith("y"))
     speak = print
     if args.speak:
         from jarvis.audio.tts import TTS

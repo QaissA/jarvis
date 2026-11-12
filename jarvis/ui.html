@@ -59,7 +59,13 @@
   #state { margin-top: 18px; color: var(--accent); letter-spacing: .5em; font-size: 12px; padding-left: .5em; }
   #heard { margin-top: 16px; color: var(--dim); min-height: 1.45em; }
   #reply { margin-top: 6px; font: 300 clamp(19px, 1.7vw, 30px)/1.4 -apple-system, system-ui, sans-serif; max-width: 34em;
-           display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+           display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+  #media { display: flex; gap: 10px; justify-content: center; margin-top: 12px; max-width: 100%; }
+  #media img { max-height: 46vh; max-width: 100%; min-width: 0; object-fit: contain; border: 1px solid var(--line);
+               border-radius: 6px; }
+  #media:empty { display: none; }
+  body.media #reactor { width: min(150px, 14vh); }  /* a picture takes the stage: shrink the reactor */
+  #log img { display: block; max-width: 100%; max-height: 140px; margin: 0 0 10px; border-radius: 4px; }
 
   #right { grid-area: right; padding: 18px 22px 0 0; display: flex; flex-direction: column; min-height: 0; }
   #log { flex: 1; overflow-y: auto; margin-top: 10px; padding-right: 4px; user-select: text; -webkit-user-select: text;
@@ -115,6 +121,7 @@
     </svg>
     <div id="state" role="status" aria-live="polite">STARTING</div>
     <div id="heard">Say “Hey Jarvis”, or type a command below.</div>
+    <div id="media"></div>
     <div id="reply" aria-live="polite"></div>
   </main>
 
@@ -134,15 +141,29 @@
   const api = () => window.pywebview && window.pywebview.api;  // absent when the page is opened in a browser
   const hhmm = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 
-  // Called from Python (jarvis/app.py) with kind = "state" | "you" | "jarvis"
+  // Called from Python (jarvis/app.py) with kind = "state" | "you" | "jarvis" | "image"
   function onEvent(kind, text) {
     if (kind === "state") {
       document.body.dataset.state = text;
       $("state").textContent = text;
       return;
     }
+    if (kind === "image") {
+      if (!/^(https?:|data:image\/)/.test(text)) return;
+      for (const box of [$("media"), $("log")]) {
+        const img = new Image();
+        img.alt = "";
+        img.onerror = () => img.remove();  // dead link: show nothing rather than a broken icon
+        img.src = text;
+        box.append(img);
+      }
+      document.body.classList.add("media");
+      $("log").scrollTop = $("log").scrollHeight;
+      return;
+    }
     // textContent everywhere: transcript text is never parsed as HTML
-    if (kind === "you") { $("heard").textContent = "“" + text + "”"; $("reply").textContent = ""; }
+    if (kind === "you") { $("heard").textContent = "“" + text + "”"; $("reply").textContent = "";
+                          $("media").replaceChildren(); document.body.classList.remove("media"); }
     else $("reply").textContent = text;
     const p = document.createElement("p"), t = document.createElement("time");
     p.className = kind;
@@ -166,7 +187,7 @@
     meter("battery", s.battery, s.battery + "%");
     meter("cpu", s.cpu, s.cpu + "%");
     meter("disk", s.disk_used, s.disk_free_gb + " GB free");
-    $("model").textContent = "local · " + s.model;
+    $("model").textContent = s.model;
   }
 
   $("cmd").addEventListener("submit", e => {
@@ -177,7 +198,10 @@
   $("mic").addEventListener("click", () => api() && api().listen());
   $("close").addEventListener("click", () => api() && api().close());
   tick(); setInterval(tick, 1000);
-  window.addEventListener("pywebviewready", () => { refresh(); setInterval(refresh, 5000); });
+  const focused = () => api() && api().focused(document.hasFocus());  // hides the status pill while this window is in front
+  window.addEventListener("focus", focused);
+  window.addEventListener("blur", focused);
+  window.addEventListener("pywebviewready", () => { refresh(); setInterval(refresh, 5000); focused(); });
 </script>
 </body>
 </html>

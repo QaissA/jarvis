@@ -44,3 +44,15 @@ def test_record_stops_on_silence_and_transcribes():
 def test_silence_times_out_empty():
     vad = EndOfSpeech()
     assert len(vad.record(lambda: np.zeros(FRAME, np.int16), 0.8, 15, 1)) == 0
+
+
+def test_split_images():
+    from jarvis.orchestrator import split_images
+    assert split_images("Here it is, sir.\n![Eiffel Tower](https://x.org/e.jpg)") == ("Here it is, sir.", ["https://x.org/e.jpg"])
+    assert split_images("Shall I?") == ("Shall I?", [])
+
+
+def test_is_yes():
+    from jarvis.orchestrator import is_yes
+    assert all(is_yes(a) for a in ["Yes.", "Go ahead.", "Sure, do it", "Okay", "yeah please"])
+    assert not any(is_yes(a) for a in ["", "No.", "Don't do it", "no, go away", "yesterday", "what?"])

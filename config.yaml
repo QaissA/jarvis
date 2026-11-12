@@ -1,4 +1,7 @@
 # Every key is optional; defaults live in jarvis/config.py
+brain: claude              # claude (your Claude Code login, needs internet) or ollama (offline only)
+claude_model: sonnet       # haiku answers faster, opus thinks harder and uses more of your plan
+claude_chrome: true        # browser control through the Claude in Chrome extension; false turns it off
 model: qwen3:8b            # 8 GB RAM: gemma4:e4b · 32 GB+: gpt-oss:20b
 user_name: sir
 whisper_model: small       # base.en is faster, small is more accurate

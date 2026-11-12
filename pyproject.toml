@@ -2,7 +2,12 @@
 name = "jarvis"
 version = "0.1.0"
 requires-python = ">=3.11,<3.13"
-dependencies = ["ollama>=0.5", "pyyaml", "pydantic>=2"]
+dependencies = [
+    "ollama>=0.5",
+    "pyyaml",
+    "pydantic>=2",
+    "claude-agent-sdk>=0.2.180",
+]
 
 [project.optional-dependencies]
 voice = ["sounddevice", "numpy", "faster-whisper", "piper-tts>=1.3", "openwakeword", "pywebview"]

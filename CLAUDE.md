@@ -1,6 +1,7 @@
 # Jarvis project rules
-- Local voice assistant in Python 3.11+. Runs fully offline.
-- LLM: Ollama (model from config.yaml) via brain/llm.py only.
+- Local voice assistant in Python 3.11+. Speech runs offline; the brain is online unless `brain: ollama`.
+- Brain: Claude through the Claude Code login (brain/claude.py, `brain: claude` in config.yaml); it falls back to Ollama (brain/llm.py) when offline.
+- Claude's tool calls outside the SAFE list in brain/claude.py must go through `ClaudeBrain.gate`, which asks the user.
 - One responsibility per module.
 - audio/ must never import brain/, and brain/ must never import audio/.
 - Every tool: type hints, docstring, returns str. registry.call catches errors.

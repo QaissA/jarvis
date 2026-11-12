@@ -16,7 +16,11 @@ class Agent:
         messages = build_messages(self.cfg, self.store, user_text)
         text = "Sorry, I got stuck on that one."
         for _ in range(self.cfg.max_tool_rounds):  # hard cap: a confused model can't loop forever
-            r = self.llm.chat(messages, registry.schemas())
+            try:
+                r = self.llm.chat(messages, registry.schemas())
+            except Exception:  # Ollama down or restarting must not kill the voice loop
+                text = "Sorry, I can't reach my local model."
+                break
             if not r.tool_calls:
                 text = r.text.strip() or text
                 break
